@@ -19,7 +19,7 @@ def main():
     # Create initial state using the proper AgentState type
     initial_state: AgentState = {
         "repo_url": "https://github.com/UbdaNam/automated-auditor.git",
-        "pdf_path": "reports/interim_report.md",  # Using our own report as example
+        "pdf_path": "reports/interim_report.pdf",
         "rubric_dimensions": [],
         "evidences": {},
         "opinions": [],
