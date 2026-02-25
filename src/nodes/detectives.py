@@ -164,69 +164,6 @@ class RepoInvestigator:
                     confidence=0.7 if len(graph_analysis_evidence) > 0 else 0.3
                 ))
             
-            # Evidence: Git History Analysis
-            git_commits = extract_git_history(temp_dir)
-            evidences.append(Evidence(
-                goal="Git Forensic Analysis",
-                found=len(git_commits) > 3,
-                content=str(git_commits[:10]),  # First 10 commits
-                location=temp_dir,
-                rationale=f"Found {len(git_commits)} commits showing development progression",
-                confidence=0.9 if len(git_commits) > 3 else 0.3
-            ))
-            
-            # Evidence: State Management Check
-            state_files = []
-            for root, dirs, files in os.walk(temp_dir):
-                # Skip hidden directories
-                dirs[:] = [d for d in dirs if not d.startswith('.')]
-                for file in files:
-                    if file in ["state.py", "graph.py"]:
-                        state_files.append(os.path.join(root, file))
-            
-            state_management_evidence = []
-            for file_path in state_files:
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        if "BaseModel" in content or "TypedDict" in content:
-                            state_management_evidence.append(f"Found in {file_path}")
-                except:
-                    pass
-            
-            evidences.append(Evidence(
-                goal="State Management Rigor",
-                found=len(state_management_evidence) > 0,
-                content=str(state_management_evidence),
-                location=str(state_files),
-                rationale=f"Found {len(state_management_evidence)} files with Pydantic BaseModel or TypedDict definitions",
-                confidence=0.8 if len(state_management_evidence) > 0 else 0.2
-            ))
-            
-            # Evidence: Graph Orchestration Check
-            graph_files = find_files_with_extension(temp_dir, ".py")
-            graph_analysis_evidence = []
-            
-            for file_path in graph_files:
-                try:
-                    structure_analysis = analyze_graph_structure(file_path)
-                    if structure_analysis["stategraph_found"] or structure_analysis["edges"]:
-                        graph_analysis_evidence.append({
-                            "file": file_path,
-                            "analysis": structure_analysis
-                        })
-                except:
-                    pass
-                    
-            evidences.append(Evidence(
-                goal="Graph Orchestration",
-                found=len(graph_analysis_evidence) > 0,
-                content=str(graph_analysis_evidence),
-                location=str([item["file"] for item in graph_analysis_evidence]),
-                rationale=f"Found {len(graph_analysis_evidence)} Python files with graph structure elements",
-                confidence=0.7 if len(graph_analysis_evidence) > 0 else 0.3
-            ))
-            
             # Evidence: Safe Tool Engineering Check
             python_files = find_files_with_extension(temp_dir, ".py")
             unsafe_patterns = []
@@ -269,44 +206,114 @@ class DocAnalyst:
     def __init__(self):
         pass
     
-    def analyze_document(self, pdf_path: str) -> Dict[str, List[Evidence]]:
-        """Analyze PDF report for theoretical depth and accuracy."""
+    def analyze_document(self, pdf_path: str, rubric_dimensions: Optional[List[Dict]] = None) -> Dict[str, List[Evidence]]:
+        """Analyze PDF report for theoretical depth and accuracy, guided by rubric dimensions when provided."""
         try:
             # Ingest PDF content
             document_text = ingest_pdf(pdf_path)
             
-            # Query for key concepts
-            key_terms = [
-                "Dialectical Synthesis", 
-                "Fan-In / Fan-Out", 
-                "Metacognition", 
-                "State Synchronization",
-                "LangGraph",
-                "StateGraph"
-            ]
-            
-            query_results = query_document_content(document_text, key_terms)
-            
             evidences = []
-            for term, contexts in query_results.items():
+            
+            # If rubric dimensions are provided, use them for targeted investigation
+            if rubric_dimensions:
+                # Filter dimensions relevant to document investigation
+                doc_dimensions = [
+                    dim for dim in rubric_dimensions
+                    if dim.get("target_artifact") == "pdf_report"
+                ]
+                
+                # Apply rubric-guided investigations
+                for dimension in doc_dimensions:
+                    forensic_instruction = dimension.get("forensic_instruction", "")
+                    dimension_id = dimension.get("id", "unknown")
+                    
+                    # Perform rubric-specific investigations
+                    if "dialectical synthesis" in forensic_instruction.lower() or "fan-in" in forensic_instruction.lower():
+                        # Evidence: Theoretical Depth (rubric-guided)
+                        key_terms = [
+                            "Dialectical Synthesis",
+                            "Fan-In / Fan-Out",
+                            "Metacognition",
+                            "State Synchronization",
+                            "LangGraph",
+                            "StateGraph"
+                        ]
+                        
+                        query_results = query_document_content(document_text, key_terms)
+                        
+                        for term, contexts in query_results.items():
+                            evidences.append(Evidence(
+                                goal=f"Theoretical Depth - {term} - {dimension_id}",
+                                found=len(contexts) > 0,
+                                content=str(contexts[:3]),  # First 3 contexts
+                                location=pdf_path,
+                                rationale=f"Found {len(contexts)} mentions of '{term}' with contextual explanations per rubric requirement",
+                                confidence=0.8 if len(contexts) > 0 else 0.2
+                            ))
+                    
+                    elif "file path" in forensic_instruction.lower() or "citation" in forensic_instruction.lower():
+                        # Evidence: Host Analysis Accuracy (rubric-guided)
+                        file_references = find_file_references(document_text)
+                        evidences.append(Evidence(
+                            goal=f"Host Analysis Accuracy - {dimension_id}",
+                            found=len(file_references) > 0,
+                            content=str(file_references),
+                            location=pdf_path,
+                            rationale=f"Found {len(file_references)} file path references in document per rubric requirement",
+                            confidence=0.7
+                        ))
+            
+            # If no rubric guidance or fallback to default investigations
+            if not evidences:
+                # Evidence: Theoretical Depth (default)
+                key_terms = [
+                    "Dialectical Synthesis",
+                    "Fan-In / Fan-Out",
+                    "Metacognition",
+                    "State Synchronization",
+                    "LangGraph",
+                    "StateGraph"
+                ]
+                
+                query_results = query_document_content(document_text, key_terms)
+                
+                evidences = []
+                for term, contexts in query_results.items():
+                    evidences.append(Evidence(
+                        goal=f"Theoretical Depth - {term}",
+                        found=len(contexts) > 0,
+                        content=str(contexts[:3]),  # First 3 contexts
+                        location=pdf_path,
+                        rationale=f"Found {len(contexts)} mentions of '{term}' with contextual explanations",
+                        confidence=0.8 if len(contexts) > 0 else 0.2
+                    ))
+                
+                # Evidence: Host Analysis Accuracy (default)
+                file_references = find_file_references(document_text)
                 evidences.append(Evidence(
-                    goal=f"Theoretical Depth - {term}",
-                    found=len(contexts) > 0,
-                    content=str(contexts[:3]),  # First 3 contexts
+                    goal="Host Analysis Accuracy",
+                    found=len(file_references) > 0,
+                    content=str(file_references),
                     location=pdf_path,
-                    rationale=f"Found {len(contexts)} mentions of '{term}' with contextual explanations",
-                    confidence=0.8 if len(contexts) > 0 else 0.2
+                    rationale=f"Found {len(file_references)} file path references in document",
+                    confidence=0.7
                 ))
             
-            # Evidence: Host Analysis Accuracy (file references)
-            file_references = find_file_references(document_text)
+            # Evidence: Safe Tool Engineering Check
+            unsafe_patterns = []
+            # Check document for unsafe patterns or security concerns
+            unsafe_terms = ["unsafe", "insecure", "vulnerability", "exploit"]
+            for term in unsafe_terms:
+                if term in document_text.lower():
+                    unsafe_patterns.append(term)
+            
             evidences.append(Evidence(
-                goal="Host Analysis Accuracy",
-                found=len(file_references) > 0,
-                content=str(file_references),
+                goal="Safe Documentation Practices",
+                found=len(unsafe_patterns) == 0,
+                content=str(unsafe_patterns) if unsafe_patterns else "No unsafe terms found",
                 location=pdf_path,
-                rationale=f"Found {len(file_references)} file path references in document",
-                confidence=0.7
+                rationale=f"Checked document for {len(unsafe_terms)} unsafe terms",
+                confidence=0.9 if len(unsafe_patterns) == 0 else 0.2
             ))
             
             return {"document": evidences}

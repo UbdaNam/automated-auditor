@@ -15,15 +15,15 @@ def create_detective_graph():
     
     # Define nodes
     def investigate_repository(state: AgentState):
-        """Investigate the target repository."""
+        """Investigate the target repository using rubric guidance."""
         print(f"Investigating repository: {state['repo_url']}")
-        evidences = repo_investigator.investigate_codebase(state["repo_url"])
+        evidences = repo_investigator.investigate_codebase(state["repo_url"], state.get("rubric_dimensions", []))
         return {"evidences": evidences}
     
     def analyze_document(state: AgentState):
-        """Analyze the accompanying document."""
+        """Analyze the accompanying document using rubric guidance."""
         print(f"Analyzing document: {state['pdf_path']}")
-        evidences = doc_analyst.analyze_document(state["pdf_path"])
+        evidences = doc_analyst.analyze_document(state["pdf_path"], state.get("rubric_dimensions", []))
         return {"evidences": evidences}
     
     def aggregate_evidence(state: AgentState):

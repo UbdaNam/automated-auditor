@@ -20,7 +20,26 @@ def main():
     initial_state: AgentState = {
         "repo_url": "https://github.com/UbdaNam/automated-auditor.git",
         "pdf_path": "reports/interim_report.pdf",
-        "rubric_dimensions": [],
+        "rubric_dimensions": [
+            {
+                "id": "state_management_rigor",
+                "name": "State Management Rigor",
+                "target_artifact": "github_repo",
+                "forensic_instruction": "Examine the repository for evidence of robust state management using Pydantic BaseModel or TypedDict"
+            },
+            {
+                "id": "graph_orchestration_complexity",
+                "name": "Graph Orchestration Complexity",
+                "target_artifact": "github_repo",
+                "forensic_instruction": "Analyze the graph structure for parallel execution patterns and complex state transitions"
+            },
+            {
+                "id": "theoretical_depth",
+                "name": "Theoretical Depth",
+                "target_artifact": "pdf_report",
+                "forensic_instruction": "Look for evidence of dialectical synthesis and fan-in/fan-out concepts in the document"
+            }
+        ],
         "evidences": {},
         "opinions": [],
         "final_report": None
