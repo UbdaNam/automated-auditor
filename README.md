@@ -62,7 +62,7 @@ This implementation follows the "Digital Courtroom" architecture described in th
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/automated-auditor.git
+git clone https://github.com/UbdaNam/automated-auditor.git
 cd automated-auditor
 
 # Install dependencies
@@ -71,50 +71,6 @@ uv sync
 # Set up environment variables
 cp .env.example .env
 # Edit .env with your API keys
-```
-
-### Usage
-
-#### Full Audit Workflow (Layers 1 + 2)
-
-```python
-from src.graph import run_audit_analysis
-
-# Run complete audit analysis
-result = run_audit_analysis(
-    repo_url="https://github.com/example/repository.git",
-    pdf_path="./architectural_report.pdf"
-)
-
-if result["success"]:
-    print("Audit completed successfully!")
-    final_report = result["final_report"]
-    print(f"Overall Score: {final_report.overall_score}/5.0")
-
-    # Save the report
-    with open("audit_report.md", "w") as f:
-        f.write(final_report.remediation_plan)
-else:
-    print(f"Audit failed: {result['error']}")
-```
-
-#### Detective Layer Only Testing
-
-```python
-from src.graph import run_detective_analysis_only
-
-# Run forensic analysis only
-result = run_detective_analysis_only(
-    repo_url="https://github.com/example/repository.git",
-    pdf_path="./architectural_report.pdf"
-)
-
-if result["success"]:
-    print("Detective analysis completed successfully!")
-    evidence = result["evidence_summary"]
-    print(f"Evidence collected: {evidence}")
-else:
-    print(f"Analysis failed: {result['error']}")
 ```
 
 ## Project Structure
@@ -194,55 +150,6 @@ The system dynamically loads [`src/rubric.json`](src/rubric.json) containing:
 - Success/failure patterns for each dimension
 - Synthesis rules for conflict resolution
 
-## Usage Examples
-
-### Running Against Your Own Repository
-
-```python
-from src.graph import run_audit_analysis
-
-result = run_audit_analysis(
-    repo_url="https://github.com/your-username/automated-auditor.git",
-    pdf_path="./reports/final_report.pdf"
-)
-```
-
-### Using a Different Rubric
-
-```python
-# Use a custom rubric for specialized auditing
-result = run_audit_analysis(
-    repo_url="https://github.com/example/repository.git",
-    rubric_file="./custom_rubric.json"
-)
-```
-
-## Development
-
-### Testing
-
-```bash
-# Run unit tests
-pytest tests/
-
-# Test specific components
-python -c "from src.graph import compile_full_graph; graph = compile_full_graph()"
-python -c "from src.nodes.judges import judicial_nodes; from src.state import AgentState; state = AgentState(...)"
-```
-
-### Code Quality
-
-```bash
-# Format code
-black src/
-
-# Lint code
-ruff check src/
-
-# Type checking
-mypy src/
-```
-
 ## Architecture Verification
 
 The implementation includes validation against the full rubric specifications:
@@ -265,4 +172,4 @@ MIT License - See LICENSE file for details.
 
 ---
 
-**Note**: This is a complete implementation of the Digital Courtroom architecture as specified in the TRP1 Challenge Week 2 requirements. The system can audit arbitrary repositories against customizable rubrics with full forensic evidence collection and dialectical judicial synthesis.
+**Note**: This is not a complete implementation of the Digital Courtroom architecture. The system can audit arbitrary repositories against customizable rubrics with full forensic evidence collection and dialectical judicial synthesis.
