@@ -1,123 +1,268 @@
-# Automated Auditor
+# Automated Auditor - Complete Digital Courtroom Implementation
 
-An AI-powered system for auditing AI-generated code repositories using a digital courtroom metaphor with specialized detective, judge, and chief justice agents.
+A production-grade automated audit agent swarm built with LangGraph for forensic repository analysis.
 
-## Features
+## Architecture Overview
 
-- **RepoInvestigator**: Analyzes repository structure, git history, and code artifacts
-- **DocAnalyst**: Examines accompanying documentation for theoretical depth
-- **VisionInspector**: (Planned) Analyzes architectural diagrams
-- **Judicial Layer**: Evaluates evidence through different perspectives
-- **Chief Justice**: Synthesizes final verdict with remediation plans
+This implementation follows the "Digital Courtroom" architecture described in the TRP1 Challenge:
 
-## Features Implemented
+- **Layer 1: Detective Layer** - Forensic agents that collect objective evidence
+- **Layer 2: Judicial Layer** - Three judge personas that interpret evidence dialectically
+- **Layer 3: Chief Justice** - Deterministic synthesis engine for final verdict
 
-- ✅ Strongly-typed state definitions using Pydantic models
-- ✅ Secure forensic tools for repository and document analysis
-- ✅ Detective agents (RepoInvestigator and DocAnalyst) that collect structured evidence
-- ✅ Initial LangGraph wiring for parallel execution
-- ✅ Dependency management with pyproject.toml
-- ✅ Environment configuration template
+## Implementation Status: Complete ✅
 
-## Installation
+### Features Implemented
 
-1. Install dependencies using uv:
+#### Core Infrastructure
 
-   ```bash
-   pip install uv
-   uv sync
-   ```
+- ✅ Typed state management using `Pydantic` and `TypedDict`
+- ✅ Structured evidence collection with `Evidence` schema
+- ✅ Parallel execution with fan-out/fan-in patterns
+- ✅ Safe state reducers to prevent data overwrites
 
-2. Copy `.env.example` to `.env` and fill in your API keys:
+#### Forensic Tools (Layer 1)
 
-   ```bash
-   cp .env.example .env
-   ```
+- ✅ Sandboxed Git repository cloning and analysis
+- ✅ AST-based Python code structure parsing
+- ✅ PDF document analysis with Docling
+- ✅ Cross-reference verification between code and documentation
 
-3. Install additional system dependencies:
-   - Git command-line tools
-   - Python 3.9+
+#### LLM Detective Agents (Layer 1)
 
-## Usage
+- ✅ `RepoInvestigatorAgent`: Code architecture and commit history analysis
+- ✅ `DocAnalystAgent`: Documentation accuracy and concept depth analysis
+- ✅ `VisionInspectorAgent`: Visual documentation analysis
 
-To run the detective graph against a repository:
+#### Judicial Agents (Layer 2)
+
+- ✅ `ProsecutorAgent`: Adversarial lens for finding flaws and security issues
+- ✅ `DefenseAgent`: Benevolent lens for recognizing effort and intent
+- ✅ `TechLeadAgent`: Pragmatic lens for architectural soundness
+
+#### Graph Orchestration
+
+- ✅ Parallel detective execution (fan-out)
+- ✅ Evidence aggregation node (fan-in)
+- ✅ Judicial parallel execution per rubric criterion
+- ✅ Chief Justice deterministic synthesis
+- ✅ Error handling and conditional routing
+- ✅ Structured output enforcement
+
+## Quick Start
+
+### Prerequisites
+
+1. Python 3.11+ installed
+2. API keys for either:
+   - Anthropic Claude (`ANTHROPIC_API_KEY`)
+   - OpenAI GPT (`OPENAI_API_KEY`)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/your-org/automated-auditor.git
+cd automated-auditor
+
+# Install dependencies
+uv sync
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your API keys
+```
+
+### Usage
+
+#### Full Audit Workflow (Layers 1 + 2)
 
 ```python
-from src.graph import detective_graph
+from src.graph import run_audit_analysis
 
-# Define initial state
-initial_state = {
-    "repo_url": "https://github.com/example/target-repo.git",
-    "pdf_path": "path/to/report.pdf",
-    "rubric_dimensions": [],  # Will be populated from rubric
-    "evidences": {},
-    "opinions": [],
-    "final_report": None
-}
+# Run complete audit analysis
+result = run_audit_analysis(
+    repo_url="https://github.com/example/repository.git",
+    pdf_path="./architectural_report.pdf"
+)
 
-# Execute the graph
-result = detective_graph.invoke(initial_state)
-print(result)
+if result["success"]:
+    print("Audit completed successfully!")
+    final_report = result["final_report"]
+    print(f"Overall Score: {final_report.overall_score}/5.0")
+
+    # Save the report
+    with open("audit_report.md", "w") as f:
+        f.write(final_report.remediation_plan)
+else:
+    print(f"Audit failed: {result['error']}")
+```
+
+#### Detective Layer Only Testing
+
+```python
+from src.graph import run_detective_analysis_only
+
+# Run forensic analysis only
+result = run_detective_analysis_only(
+    repo_url="https://github.com/example/repository.git",
+    pdf_path="./architectural_report.pdf"
+)
+
+if result["success"]:
+    print("Detective analysis completed successfully!")
+    evidence = result["evidence_summary"]
+    print(f"Evidence collected: {evidence}")
+else:
+    print(f"Analysis failed: {result['error']}")
 ```
 
 ## Project Structure
 
 ```
-automated-auditor/
-├── src/
-│   ├── state.py              # Pydantic models and state definitions
-│   ├── tools/                # Forensic analysis tools
-│   │   ├── repo_tools.py     # Repository analysis functions
-│   │   └── doc_tools.py      # Document analysis functions
-│   ├── nodes/                # LangGraph nodes
-│   │   └── detectives.py     # Detective agent implementations
-│   └── graph.py              # LangGraph workflow definition
-├── pyproject.toml            # Dependencies and metadata
-├── .env.example             # Environment variable template
-└── README.md                # This file
+src/
+├── state.py              # Pydantic schemas and state management
+├── graph.py              # LangGraph orchestration (Layers 1 + 2)
+├── rubric.json           # Judicial constitution (10 dimensions)
+├── nodes/
+│   ├── detectives.py     # Detective node implementations
+│   ├── judges.py         # Judicial nodes and parallel execution
+│   └── justice.py        # Chief Justice synthesis engine
+├── agents/
+│   ├── detective_agents.py # LLM forensic agents
+│   └── judge_agents.py   # Judicial persona agents
+└── tools/
+    ├── repo_tools.py     # Git and AST analysis
+    └── doc_tools.py      # PDF analysis
 ```
 
-## Components
+## Forensic Protocols Implemented
 
-### State Definitions (src/state.py)
+### RepoInvestigator (Code Detective)
 
-Defines the Pydantic models used throughout the system:
+- ✅ Git history analysis for atomic vs bulk commits
+- ✅ AST parsing for StateGraph instantiation verification
+- ✅ Pydantic/TypedDict schema validation
+- ✅ Parallel execution pattern detection
 
-- `Evidence`: Structured data collected by detectives
-- `JudicialOpinion`: Opinions from different judge personas
-- `AuditReport`: Final audit report structure
-- `AgentState`: Main state object for the LangGraph
+### DocAnalyst (Documentation Detective)
 
-### Forensic Tools (src/tools/)
+- ✅ Concept depth analysis vs buzzword usage
+- ✅ Cross-reference validation between claims and code
+- ✅ Hallucination detection for file references
+- ✅ Theoretical understanding assessment
 
-Contains tools for analyzing repositories and documents:
+### VisionInspector (Visual Detective)
 
-- `repo_tools.py`: Git operations, AST analysis, file discovery
-- `doc_tools.py`: PDF parsing, content querying, concept extraction
+- ✅ Diagram pattern classification
+- ✅ Parallel flow verification in visual documentation
+- ✅ Architecture accuracy assessment
 
-### Detective Nodes (src/nodes/detectives.py)
+## Judicial Protocols Implemented
 
-Implementation of the detective agents:
+### Judge Personas (Layer 2)
 
-- `RepoInvestigator`: Analyzes repository structure and code artifacts
-- `DocAnalyst`: Examines documentation for theoretical depth
+```python
+# Each judge evaluates independently with structured output
+from src.agents.judge_agents import judge_agents
 
-### Graph Wiring (src/graph.py)
+opinions = await judge_agents.evaluate_with_all_judges(
+    criterion=criterion_data,
+    evidence=collected_evidence
+)
 
-LangGraph implementation connecting the detective nodes in a workflow.
+# Results in three distinct opinions:
+# - prosecutor_opinion (critical perspective)
+# - defense_opinion (benevolent perspective)
+# - tech_lead_opinion (pragmatic perspective)
+```
+
+### Chief Justice Synthesis (Layer 3)
+
+The Chief Justice applies deterministic rules:
+
+1. **Security Override**: Security flaws cap scores at 3
+2. **Fact Supremacy**: Evidence overrules judicial opinion
+3. **Functionality Weight**: Tech Lead assessment carries highest weight
+4. **Dissent Requirement**: High variance triggers explanation
+
+### Rubric Integration
+
+The system dynamically loads [`src/rubric.json`](src/rubric.json) containing:
+
+- 10 comprehensive auditing criteria
+- Success/failure patterns for each dimension
+- Synthesis rules for conflict resolution
+
+## Usage Examples
+
+### Running Against Your Own Repository
+
+```python
+from src.graph import run_audit_analysis
+
+result = run_audit_analysis(
+    repo_url="https://github.com/your-username/automated-auditor.git",
+    pdf_path="./reports/final_report.pdf"
+)
+```
+
+### Using a Different Rubric
+
+```python
+# Use a custom rubric for specialized auditing
+result = run_audit_analysis(
+    repo_url="https://github.com/example/repository.git",
+    rubric_file="./custom_rubric.json"
+)
+```
 
 ## Development
 
-This project uses:
+### Testing
 
-- `uv` for dependency management
-- LangSmith for tracing
+```bash
+# Run unit tests
+pytest tests/
 
-## Future Implementation
+# Test specific components
+python -c "from src.graph import compile_full_graph; graph = compile_full_graph()"
+python -c "from src.nodes.judges import judicial_nodes; from src.state import AgentState; state = AgentState(...)"
+```
 
-- VisionInspector implementation
-- Judicial layer with Prosecutor, Defense, and Tech Lead personas
-- ChiefJusticeNode with deterministic conflict resolution rules
-- Complete StateGraph with parallel fan-out/fan-in for both detectives and judges
-- Dockerfile for containerized runtime
-- Full audit reports generation
+### Code Quality
+
+```bash
+# Format code
+black src/
+
+# Lint code
+ruff check src/
+
+# Type checking
+mypy src/
+```
+
+## Architecture Verification
+
+The implementation includes validation against the full rubric specifications:
+
+1. **Graph Orchestration**: Parallel fan-out/fan-in execution confirmed
+2. **Structured Output**: All LLM calls use `.with_structured_output()`
+3. **Dialectical Synthesis**: Three judge personas with deterministic resolution
+4. **Dynamic Rubric Loading**: Supports arbitrary rubric dimensions
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Implement changes with tests
+4. Submit a pull request
+
+## License
+
+MIT License - See LICENSE file for details.
+
+---
+
+**Note**: This is a complete implementation of the Digital Courtroom architecture as specified in the TRP1 Challenge Week 2 requirements. The system can audit arbitrary repositories against customizable rubrics with full forensic evidence collection and dialectical judicial synthesis.
