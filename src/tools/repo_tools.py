@@ -1,105 +1,230 @@
-import tempfile
-import subprocess
-import os
-from pathlib import Path
-from typing import List, Dict
 import ast
+import os
+import subprocess
+import tempfile
+import shutil
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
-def clone_repository(repo_url: str) -> str:
-    """Clone repository to a temporary directory."""
-    temp_dir = tempfile.mkdtemp()
-    try:
-        # Using shell=False for security
-        result = subprocess.run(
-            ["git", "clone", repo_url, temp_dir], 
-            check=True, 
-            capture_output=True, 
-            text=True
-        )
-        return temp_dir
-    except subprocess.CalledProcessError as e:
-        raise Exception(f"Failed to clone repository: {e.stderr}")
 
-def extract_git_history(repo_path: str) -> List[Dict]:
-    """Extract git commit history with timestamps."""
-    try:
-        # Get commit history with dates
-        result = subprocess.run([
-            "git", "-C", repo_path, "log", "--oneline", "--reverse", "--date=iso", "--pretty=format:%H|%ad|%s"
-        ], capture_output=True, text=True, check=True)
+class GitTools:
+    """Tools for forensic analysis of git repositories using system git commands."""
+    
+    @staticmethod
+    def clone_repository(repo_url: str) -> Tuple[str, str]:
+        """
+        Safely clone a repository using system git command.
         
-        commits = []
-        for line in result.stdout.strip().split('\n'):
-            if line:
-                parts = line.split('|', 2)
-                if len(parts) >= 3:
-                    commits.append({
-                        "hash": parts[0],
-                        "timestamp": parts[1],
-                        "message": parts[2]
-                    })
-        return commits
-    except subprocess.CalledProcessError as e:
-        raise Exception(f"Failed to extract git history: {e.stderr}")
-
-def analyze_graph_structure(file_path: str) -> Dict:
-    """Analyze LangGraph structure using AST parsing."""
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+        Args:
+            repo_url: URL of the repository to clone
+            
+        Returns:
+            Tuple of (repo_path, repo_name)
+        """
+        try:
+            # Create permanent directory for cloning
+            repo_name = repo_url.split("/")[-1].replace(".git", "")
+            permanent_dir = "./temp_repos"
+            os.makedirs(permanent_dir, exist_ok=True)
+            repo_path = Path(permanent_dir) / repo_name
+            
+            # Clone using system git command
+            result = subprocess.run(
+                ["git", "clone", repo_url, str(repo_path)],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            
+            return str(repo_path), repo_name
+            
+        except subprocess.CalledProcessError as e:
+            raise ValueError(f"Git clone failed: {e.stderr}")
+        except Exception as e:
+            raise ValueError(f"Repository cloning failed: {e}")
+    
+    @staticmethod
+    def analyze_git_history(repo_path: str) -> Dict:
+        """
+        Analyze git commit history using git log command.
         
-        tree = ast.parse(content)
-        
-        # Look for StateGraph instantiation and add_edge calls
-        findings = {
-            "stategraph_found": False,
-            "parallel_execution": False,
-            "edges": [],
-            "nodes": []
-        }
-        
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Call):
-                # Check for StateGraph instantiation
-                if isinstance(node.func, ast.Name) and "StateGraph" in node.func.id:
-                    findings["stategraph_found"] = True
-                
-                # Check for add_edge calls indicating graph wiring
-                if isinstance(node.func, ast.Attribute) and node.func.attr == "add_edge":
-                    edge_info = {
-                        "line": node.lineno,
-                        "args": [ast.dump(arg) for arg in node.args]
-                    }
-                    findings["edges"].append(edge_info)
-                    
-                    # Check for parallel wiring pattern
-                    if len(node.args) >= 2:
-                        findings["parallel_execution"] = True
-                        
-            # Look for node definitions
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if isinstance(target, ast.Name) and "node" in target.id.lower():
-                        findings["nodes"].append({
-                            "line": node.lineno,
-                            "name": target.id
+        Args:
+            repo_path: Path to the git repository
+            
+        Returns:
+            Dictionary with analysis results
+        """
+        try:
+            # Get git log output
+            result = subprocess.run(
+                ["git", "log", "--oneline", "-50", "--format=%H|%an|%ad|%s"],
+                cwd=repo_path,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            
+            commits = []
+            for line in result.stdout.strip().split('\n'):
+                if line:
+                    parts = line.split('|', 3)
+                    if len(parts) == 4:
+                        commits.append({
+                            "hash": parts[0][:8],
+                            "author": parts[1],
+                            "date": parts[2],
+                            "message": parts[3].strip()
                         })
+            
+            return {
+                "total_commits": len(commits),
+                "recent_commits": commits,
+                "has_progression": GitTools._check_progression_pattern(commits),
+                "has_atomic_history": GitTools._check_atomic_history(commits)
+            }
+            
+        except subprocess.CalledProcessError as e:
+            return {"error": f"Git log failed: {e.stderr}"}
+        except Exception as e:
+            return {"error": f"Failed to analyze git history: {e}"}
+    
+    @staticmethod
+    def _check_progression_pattern(commits: List[Dict]) -> bool:
+        """Check if commits show progressive development patterns."""
+        if len(commits) < 5:
+            return False
         
-        return findings
-    except FileNotFoundError:
-        raise Exception(f"File not found: {file_path}")
-    except SyntaxError as e:
-        raise Exception(f"Syntax error in file {file_path}: {str(e)}")
-    except Exception as e:
-        raise Exception(f"Failed to analyze graph structure: {str(e)}")
+        # Check for feature-related keywords
+        feature_words = ["feature", "add", "implement", "fix", "update", "refactor"]
+        feature_count = sum(1 for commit in commits if any(word in commit["message"].lower() for word in feature_words))
+        
+        return feature_count >= len(commits) * 0.3  # At least 30% of commits show progression
+    
+    @staticmethod
+    def _check_atomic_history(commits: List[Dict]) -> bool:
+        """Check if commits follow atomic commit principles."""
+        if len(commits) < 5:
+            return False
+        
+        # Check for focused commit messages (not too long, not multiple unrelated changes)
+        focused_count = sum(1 for commit in commits 
+                          if len(commit["message"]) < 100 and 
+                          commit["message"].count("and") < 3)
+        
+        return focused_count >= len(commits) * 0.6  # At least 60% of commits are atomic
 
-def find_files_with_extension(repo_path: str, extension: str) -> List[str]:
-    """Find all files with a specific extension in the repository."""
-    files = []
-    for root, dirs, filenames in os.walk(repo_path):
-        # Skip hidden directories
-        dirs[:] = [d for d in dirs if not d.startswith('.')]
-        for filename in filenames:
-            if filename.endswith(extension):
-                files.append(os.path.join(root, filename))
-    return files
+
+class ASTTools:
+    """Tools for analyzing Python code structure using AST."""
+    
+    @staticmethod
+    def analyze_file_structure(file_path: str) -> Dict:
+        """
+        Analyze Python file structure using AST.
+        
+        Args:
+            file_path: Path to Python file to analyze
+            
+        Returns:
+            Dictionary with structure analysis
+        """
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            tree = ast.parse(content)
+            
+            # Count different types of nodes
+            imports = []
+            functions = []
+            classes = []
+            
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    imports.extend([name.name for name in node.names])
+                elif isinstance(node, ast.ImportFrom):
+                    imports.extend([name.name for name in node.names])
+                elif isinstance(node, ast.FunctionDef):
+                    functions.append({"name": node.name, "line": node.lineno})
+                elif isinstance(node, ast.ClassDef):
+                    classes.append({"name": node.name, "line": node.lineno})
+            
+            return {
+                "imports": imports,
+                "functions": functions,
+                "classes": classes,
+                "has_state_graph": ASTTools._check_state_graph_structure(tree),
+                "has_parallel_wiring": ASTTools._check_parallel_wiring(tree)
+            }
+            
+        except Exception as e:
+            return {"error": f"AST analysis failed: {e}"}
+    
+    @staticmethod
+    def _check_state_graph_structure(tree: ast.AST) -> bool:
+        """Check if code has LangGraph StateGraph structure."""
+        # Look for LangGraph patterns
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                if "StateGraph" in [b.id for b in node.bases if isinstance(b, ast.Name)]:
+                    return True
+        return False
+    
+    @staticmethod
+    def _check_parallel_wiring(tree: ast.AST) -> bool:
+        """Check for parallel execution patterns."""
+        # Look for branching/parallel patterns
+        for node in ast.walk(tree):
+            if isinstance(node, ast.If) or isinstance(node, ast.Match):
+                return True
+        return False
+
+
+class FileSystemTools:
+    """Tools for general file system forensics."""
+    
+    @staticmethod
+    def scan_directory_structure(repo_path: str) -> Dict:
+        """
+        Scan directory structure and file statistics.
+        
+        Args:
+            repo_path: Path to repository root
+            
+        Returns:
+            Dictionary with directory analysis
+        """
+        try:
+            data = {}
+            
+            # Count files by type
+            file_counts = {}
+            total_files = 0
+            
+            for root, dirs, files in os.walk(repo_path):
+                for file in files:
+                    ext = os.path.splitext(file)[1] or "no_extension"
+                    file_counts[ext] = file_counts.get(ext, 0) + 1
+                    total_files += 1
+            
+            return {
+                "total_files": total_files,
+                "file_types": file_counts,
+                "has_readme": FileSystemTools.file_exists(os.path.join(repo_path, "README.md")),
+                "has_pyproject": FileSystemTools.file_exists(os.path.join(repo_path, "pyproject.toml")),
+                "has_requirements": FileSystemTools.file_exists(os.path.join(repo_path, "requirements.txt"))
+            }
+            
+        except Exception as e:
+            return {"error": f"Directory scan failed: {e}"}
+    
+    @staticmethod
+    def file_exists(file_path: str) -> Dict:
+        """Check if file exists and return basic info."""
+        try:
+            if os.path.exists(file_path):
+                return {"exists": True, "size": os.path.getsize(file_path)}
+            else:
+                return {"exists": False}
+        except Exception:
+            return {"exists": False}
